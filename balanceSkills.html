@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="cycleApp.css">
+    <link rel="icon" href="cycleIcon.png"/>
+    <link rel="apple-touch-icon" href="cycleIcon.png"/>
+    <link rel="shortcut icon" href="cycleIcon.png" type="image/x-icon"/>
+
+    <meta charset="UTF-8">
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-touch-fullscreen" content="yes"/>
+    <meta name="mobile-web-app-fullscreen" content="yes"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0">
+
+    <title>Balance Skills</title>
+
+</head>
+<body>
+<header><a href="welcome.php"><img src="homeIcon.png" id="homeNav"></a>
+    <img src="sidebarIcon.png" id="navButton" onclick="moveSidebar();"/>Balance Skills
+</header>
+<main>
+    <div id="sidebar">
+        <img src="closebutton.png" id="closeButton" onclick="moveSidebar();"/>
+        <ul id="currentSettings">
+            <li><a id="csLink" href="calorieCounter.php">Calorie Counter</a></li>
+            <li><a id="gdLink" href="graphData.php">Calorie Data</a></li>
+            <li><a id="tfLink" href="teamForming.php">Team forming</a></li>
+            <li><a id="rpLink" href="routePlanner.html">Route Planner</a></li>
+            <li><a id="bsLink" class="selected" href="balanceSkills.html">Balance Skills</a></li>
+            <li><a id="pfLink" href="profile.php">Profile</a></li>
+            <li><a id="gsLink" href="logout.php">Log out</a></li>
+        </ul>
+    </div>
+    <script src="main.js"></script>
+    <script>
+        showMenu();
+    </script>
+    <br>
+    <div id="balanceinfo">
+        <h1>Information</h1>
+        <p>In order to improve your balance on your bicycle.
+        </p>
+        <p>
+            Try riding your bicycle "abnormally" while keeping the bar in the green zone.
+        </p>
+        <p>
+            E.g. You could try riding with your right hand on top of your right knee.
+        </p>
+    </div>
+
+</main>
+
+<script src="BalanceMeterView.js"></script>
+<script src="BalanceMeterController.js"></script>
+</body>
+
+</html>

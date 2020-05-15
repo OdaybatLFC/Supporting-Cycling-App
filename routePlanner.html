@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="cycleApp.css">
+
+    <link rel="icon" href="cycleIcon.png"/>
+    <link rel="apple-touch-icon" href="cycleIcon.png"/>
+    <link rel="shortcut icon" href="cycleIcon.png" type="image/x-icon"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-touch-fullscreen" content="yes" />
+    <meta name="mobile-web-app-fullscreen" content="yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0">
+
+    <title>Route Planner</title>
+
+</head>
+<header><a href="welcome.php"><img src="homeIcon.png" id="homeNav"></a>
+    <img src="sidebarIcon.png" id="navButton" onclick="moveSidebar();"/>Route Planner</header>
+<main>
+    <div id="sidebar">
+        <img src="closebutton.png" id="closeButton" onclick="moveSidebar();"/>
+        <ul id="currentSettings">
+            <li><a id="csLink" href="calorieCounter.php">Calorie Counter</a></li>
+            <li><a id="gdLink" href="graphData.php">Calorie Data</a></li>
+            <li><a id="tfLink" href="teamForming.php">Team forming</a></li>
+            <li><a id="rpLink" class="selected" href="routePlanner.html">Route Planner</a></li>
+            <li><a id="bsLink" href="balanceSkills.html">Balance Skills</a></li>
+            <li><a id="pfLink" href="profile.php">Profile</a></li>
+            <li><a id="gsLink" href="logout.php">Log out</a></li>
+        </ul>
+    </div>
+    <script src="main.js"></script>
+    <script>
+        showMenu();
+    </script>
+</main>
+
+<br>
+<div id="routePlannerBox">
+<form method="post" onsubmit="submitForm(); return false">
+    <label id="startLabel">Start: Current location</label><br><br>
+    <label id="endLabel">End: </label><input placeholder="address | postcode" id="endInput" type="text"><br><br>
+    <label id="cyclingTerrainLabel">Bike type: </label>
+    <select id="bicycleType" name="bicycleType">
+        <option selected value="cycling-regular">Regular</option>
+        <option value="cycling-road">Road</option>
+        <option value="cycling-mountain">Mountain</option>
+        <option value="cycling-electric">Electric</option>
+    </select><br><br>
+    <button id="planRouteButton" type="submit">Plan route</button>
+</form>
+
+<p id="errorMessage" style="color: red"></p>
+<p id="routeLabel">Route planning</p>
+<div id="mapid" style="width:300px;height:300px;margin: 0 auto"></div>
+
+<p id="directionLabel"></p>
+<p id="routeResults"></p>
+
+<p id="weatherLabel">Weather information</p>
+<p id="weatherResults"></p>
+<script>
+    var latitude, longitude = 0;
+    var endCoordinates = undefined;
+    var map = L.map('mapid');
+    var displayedMessage = [];
+    var errorMessage = [];
+
+    hideInformation();
+
+    function gpsStatus() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(getLatLong);
+        } else {
+            errorMessage.push("Geolocation is not supported.");
+            displayError();
+        }
+    }
+
+    function getGeoJSON() {
+        var getJson = new XMLHttpRequest();
+
+        getJson.open('POST', "https://api.openrouteservice.org/v2/directions/" + document.getElementById("bicycleType").value + "/geojson");
+        getJson.setRequestHeader('Accept', 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8');
+        getJson.setRequestHeader('Content-Type', 'application/json');
+        getJson.setRequestHeader('Authorization', '5b3ce3597851110001cf624849abbe082f70435b9cf485c4e870bbbb');
+
+        getJson.onreadystatechange = function () {
+            if (getJson.readyState === 4) {
+                if (getJson.status === 200) {
+                    try {
+                        showInformation();
+                        map.setView([latitude, longitude], 15);
+                        L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
+                        L.geoJSON(JSON.parse(getJson.responseText)).addTo(map);
+                    } catch (e) {
+                        errorMessage.push(e.message);
+                        displayError();
+                    }
+                } else {
+                    errorMessage.push("Couldn't get map data from the user inputted data");
+                    displayError();
+                }
+            }
+        };
+        var coordData = {"coordinates": [[longitude, latitude], endCoordinates]};
+
+        getJson.send(JSON.stringify(coordData));
+    }
+
+
+    function getLatLong(geolocationObject) {
+        latitude = geolocationObject.coords.latitude;
+        longitude = geolocationObject.coords.longitude;
+
+        getEndCoords();
+
+        if (endCoordinates !== undefined) {
+            getDirections(endCoordinates);
+            getWeather();
+        } else {
+            gpsStatus();
+        }
+    }
+
+
+    function getEndCoords() {
+        var getCoords = new XMLHttpRequest();
+
+        getCoords.open('GET', "https://api.openrouteservice.org/geocode/search?api_key=5b3ce3597851110001cf624849abbe082f70435b9cf485c4e870bbbb&text=" + document.getElementById("endInput").value);
+        getCoords.setRequestHeader('Accept', 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8');
+        getCoords.onreadystatechange = function () {
+            if (getCoords.readyState === 4) {
+                if (getCoords.status === 200) {
+                    try {
+                        var jsonFile = getCoords.responseText;
+                        var coordinates = JSON.parse(jsonFile);
+                        endCoordinates = coordinates.features[0].geometry.coordinates;
+                    } catch(e) {
+                        errorMessage.push(e.message);
+                        displayError();
+                    }
+                } else {
+                    errorMessage.push("Couldn't get the coordinates of the user inputted end location");
+                    displayError();
+                }
+            }
+        };
+        getCoords.send();
+    }
+
+
+    function getDirections(endCoordinates) {
+        var getDirections = new XMLHttpRequest();
+        getDirections.open('POST', "https://api.openrouteservice.org/v2/directions/" + document.getElementById("bicycleType").value);
+        getDirections.setRequestHeader('Content-Type', 'application/json');
+        getDirections.setRequestHeader('Authorization', '5b3ce3597851110001cf624849abbe082f70435b9cf485c4e870bbbb');
+
+        getDirections.onreadystatechange = function () {
+            if (getDirections.readyState === 4) {
+                if (getDirections.status === 200) {
+                    try {
+                        var jsonFile = getDirections.responseText;
+                        var directions = JSON.parse(jsonFile);
+                        var directionsText = "";
+
+                        // loop through the json to get the directions
+                        for (var i = 0; i < directions.routes[0].segments.length; i++) {
+                            for (var j = 0; j < directions.routes[0].segments[i].steps.length; j++) {
+                                if (directions.routes[0].segments[i].steps[j].distance !== 0) {
+                                    directionsText += (j + 1) + ". " + directions.routes[0].segments[i].steps[j].instruction + " for " + directions.routes[0].segments[i].steps[j].distance + "m" + "<br>";
+                                } else {
+                                    directionsText += (j + 1) + ". " + directions.routes[0].segments[i].steps[j].instruction + "<br>";
+                                    directionsText += "Approximate route time: " + directions.routes[0].segments[i].duration + "s <br>";
+                                    directionsText += "Total distance: " + directions.routes[0].segments[i].distance + "m <br>";
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        errorMessage.push(e.message);
+                        displayError();
+                    }
+                } else {
+                    errorMessage.push("Couldn't get the directions");
+                    displayError();
+                }
+            }
+
+            // only display instructions when the json has been retrieved
+            if (directionsText !== undefined) {
+                document.getElementById("directionLabel").innerHTML = "Directions";
+                document.getElementById("routeResults").innerHTML = directionsText;
+                // display the route map
+                getGeoJSON();
+            }
+        };
+
+        // take json coordinate data from the user
+        var cordData = {"coordinates": [[longitude, latitude], endCoordinates]}
+        // send a string request for to the open maps api
+        getDirections.send(JSON.stringify(cordData));
+    }
+
+
+    function getWeather() {
+        if(longitude !== 0 && latitude !== 0) {
+            var xmlRequest = new XMLHttpRequest();
+            xmlRequest.open("GET", "https://api.openweathermap.org/data/2.5/weather?lat=" + latitude + "&lon=" + longitude + "&mode=xml&appid=bda430938d138ec181930f5b17578316");
+
+            xmlRequest.onreadystatechange = function () {
+                if (xmlRequest.readyState === 4) {
+                    if (xmlRequest.status === 200) {
+                        var xmlResponse = xmlRequest.responseXML;
+
+                        // parsing the xml file
+                        var current = xmlResponse.getElementsByTagName("current").item(0);
+                        var city = current.getElementsByTagName("city").item(0).getAttribute("name");
+                        var temperature = (current.getElementsByTagName("temperature").item(0).getAttribute("value") - 273.15).toFixed(2);
+
+                        var windDescription = current.getElementsByTagName("wind").item(0).getElementsByTagName("speed").item(0).getAttribute("name");
+                        var windSpeed = (current.getElementsByTagName("wind").item(0).getElementsByTagName("speed").item(0).getAttribute("value") * 2.237).toFixed(2);
+                        var windDirection = current.getElementsByTagName("wind").item(0).getElementsByTagName("direction").item(0).getAttribute("name");
+
+                        var weatherDescription = current.getElementsByTagName("weather").item(0).getAttribute("value");
+                        var weatherReport = "For the city/town "+ city +". The temperature outside is " + temperature + "°C. There is a " + windDescription + " wind coming from the " + windDirection + " with a speed of " + windSpeed + "mph. Overall the weather can be described as having " + weatherDescription + ". ";
+
+                        if (windSpeed > 20 && temperature > 30) {
+                            weatherReport += "It is severe weather outside as the current temperature is too high and the wind speed is greater than 20mph. Don't go out unless you have to!";
+
+                        } else if (windSpeed > 20) {
+                            weatherReport += "It is not advisable to go outside as wind speed is greater than 20mph!";
+
+                        } else if (temperature > 30) {
+                            weatherReport += "It is not advisable to go outside as the current temperature is too high!";
+
+                        } else {
+                            weatherReport += "The weather outside is perfect, bring a helmet, enjoy your cycle!";
+                        }
+
+                        document.getElementById("weatherResults").innerHTML = weatherReport;
+
+                    } else {
+                        errorMessage.push("could not load xml file");
+                        displayError();
+                    }
+                }
+            };
+
+            xmlRequest.send(null);
+        } else {
+            errorMessage.push("Looks like lat long can't be obtained");
+            displayError();
+        }
+    }
+
+    function hideInformation() {
+        document.getElementById("mapid").style.display = "none";
+        document.getElementById("routeLabel").style.display = "none";
+
+        document.getElementById("directionLabel").style.display = "none";
+        document.getElementById("routeResults").style.display = "none";
+        document.getElementById("weatherLabel").style.display = "none";
+        document.getElementById("weatherResults").style.display = "none";
+    }
+
+    function showInformation() {
+        document.getElementById("directionLabel").style.display = "block";
+        document.getElementById("mapid").style.display = "block";
+        document.getElementById("routeLabel").style.display = "block";
+        document.getElementById("routeResults").style.display = "block";
+        document.getElementById("weatherLabel").style.display = "block";
+        document.getElementById("weatherResults").style.display = "block";
+    }
+
+    function submitForm() {
+        gpsStatus();
+        displayedMessage = [];
+        errorMessage=[];
+        document.getElementById("errorMessage").innerHTML = "";
+        return false;
+    }
+
+    function displayError() {
+        for (var i=0; i<errorMessage.length; i++) {
+            if(!displayedMessage.includes(errorMessage[i])) {
+                displayedMessage.push(errorMessage[i]);
+                document.getElementById("errorMessage").innerHTML += (i + 1) + " " + errorMessage[i] + "<br>";
+            }
+        }
+
+        console.log(errorMessage);
+    }
+</script>
+</div>
+</body>
+</html>
